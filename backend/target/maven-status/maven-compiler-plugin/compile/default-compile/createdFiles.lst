@@ -1,0 +1,6 @@
+com\quickwerewolf\config\RedisConfig.class
+com\quickwerewolf\domain\Game$GamePhase.class
+com\quickwerewolf\config\WebSocketConfig.class
+com\quickwerewolf\controller\RoomController.class
+com\quickwerewolf\domain\Game.class
+com\quickwerewolf\QuickWerewolfApplication.class
