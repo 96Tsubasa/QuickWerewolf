@@ -16,6 +16,12 @@ export const Lobby = () => {
   
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  // Available Roles
+  const AVAILABLE_ROLES = ['VILLAGER', 'SEER', 'BODYGUARD', 'WEREWOLF', 'SERIAL_KILLER', 'FOOL'];
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({
+    VILLAGER: 1, WEREWOLF: 1
+  });
 
   useEffect(() => {
     if (!roomCode) {
@@ -48,12 +54,14 @@ export const Lobby = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle room ended status
+  // Handle room status changes
   useEffect(() => {
     if (roomState?.status === 'ENDED') {
       alert("The room was closed by the host.");
       clearRoom();
       navigate('/');
+    } else if (roomState?.status === 'PLAYING') {
+      navigate(`/game/${roomState.roomCode}`);
     }
   }, [roomState?.status]);
 
@@ -109,6 +117,27 @@ export const Lobby = () => {
     }
   };
 
+  const handleStartGame = async () => {
+    if (!isHost) return;
+    const selectedRolesList: string[] = [];
+    Object.entries(roleCounts).forEach(([role, count]) => {
+      for (let i = 0; i < count; i++) selectedRolesList.push(role);
+    });
+    
+    if (selectedRolesList.length > players.length) {
+      alert(`You selected ${selectedRolesList.length} roles, but only have ${players.length} players!`);
+      return;
+    }
+    
+    try {
+      await api.startGame(roomState.roomCode, deviceId, selectedRolesList);
+    } catch (err: any) {
+      alert(err.message || 'Failed to start game');
+    }
+  };
+
+  const totalRoles = Object.values(roleCounts).reduce((a, b) => a + b, 0);
+
   return (
     <div className="app-container" style={styles.container}>
       <div style={styles.mainContent}>
@@ -120,7 +149,7 @@ export const Lobby = () => {
           <div style={styles.actions}>
             {isHost ? (
               <>
-                <button className="primary" style={styles.actionBtn}>
+                <button className="primary" onClick={handleStartGame} style={styles.actionBtn}>
                   <Play size={18} /> Start Game
                 </button>
                 <button className="danger" onClick={handleCloseRoom} style={styles.actionBtn}>
@@ -134,6 +163,23 @@ export const Lobby = () => {
             )}
           </div>
         </div>
+
+        {isHost && (
+          <div style={{ padding: '0 16px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Role Configuration (Selected: {totalRoles} / Players: {players.length})</h3>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {AVAILABLE_ROLES.map(role => (
+                <div key={role} style={{ background: '#16213e', padding: '8px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{role}</span>
+                  <button onClick={() => setRoleCounts(prev => ({ ...prev, [role]: Math.max(0, (prev[role] || 0) - 1)}))}>-</button>
+                  <span>{roleCounts[role] || 0}</span>
+                  <button onClick={() => setRoleCounts(prev => ({ ...prev, [role]: (prev[role] || 0) + 1}))}>+</button>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#aaa', marginTop: '8px' }}>Note: If total roles selected is less than player count, the remaining players will be Villagers.</p>
+          </div>
+        )}
 
         <div style={styles.gridContainer}>
           {Array.from({ length: 16 }).map((_, index) => {

@@ -57,5 +57,17 @@ export const api = {
     const res = await fetch(`${API_BASE}/rooms/${roomCode}`);
     if (!res.ok) throw new Error('Failed to fetch room state');
     return res.json();
+  },
+
+  startGame: async (roomCode: string, hostDeviceId: string, selectedRoles: string[]): Promise<void> => {
+    const res = await fetch(`${API_BASE}/rooms/${roomCode}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostDeviceId, selectedRoles }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || 'Failed to start game');
+    }
   }
 };

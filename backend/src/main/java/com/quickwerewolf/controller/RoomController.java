@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/rooms")
@@ -63,5 +64,23 @@ public class RoomController {
     public ResponseEntity<RoomStateDto> getRoom(@PathVariable String roomCode) {
         RoomStateDto state = roomService.getRoomState(roomCode);
         return ResponseEntity.ok(state);
+    }
+    
+    @Autowired
+    private com.quickwerewolf.service.GameService gameService;
+
+    @PostMapping("/{roomCode}/start")
+    public ResponseEntity<Void> startGame(@PathVariable String roomCode, @RequestBody Map<String, Object> payload) {
+        String hostDeviceId = (String) payload.get("hostDeviceId");
+        List<String> roleStrings = (List<String>) payload.get("selectedRoles");
+        List<com.quickwerewolf.domain.role.RoleType> selectedRoles = new java.util.ArrayList<>();
+        if (roleStrings != null) {
+            for (String r : roleStrings) {
+                selectedRoles.add(com.quickwerewolf.domain.role.RoleType.valueOf(r));
+            }
+        }
+        
+        gameService.startGame(roomCode, hostDeviceId, selectedRoles);
+        return ResponseEntity.ok().build();
     }
 }

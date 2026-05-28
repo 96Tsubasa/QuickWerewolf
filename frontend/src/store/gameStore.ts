@@ -1,17 +1,18 @@
 import { create } from 'zustand';
+import type { GameSessionState, GamePlayer } from '../types';
 
-interface GameState {
-  gameId: string | null;
-  currentPhase: 'NIGHT' | 'DISCUSSION' | 'VOTING' | 'ENDED';
-  currentDay: number;
-  timer: number;
-  setGameState: (state: Partial<GameState>) => void;
+interface GameStore extends Partial<GameSessionState> {
+  timerRemaining: number;
+  setGameState: (state: Partial<GameSessionState>) => void;
+  setTimer: (time: number) => void;
+  players: GamePlayer[];
+  setPlayers: (players: GamePlayer[]) => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
-  gameId: null,
-  currentPhase: 'NIGHT',
-  currentDay: 1,
-  timer: 0,
-  setGameState: (newState) => set((state) => ({ ...state, ...newState }))
+export const useGameStore = create<GameStore>((set) => ({
+  timerRemaining: 0,
+  players: [],
+  setGameState: (newState) => set((state) => ({ ...state, ...newState })),
+  setTimer: (time) => set({ timerRemaining: time }),
+  setPlayers: (players) => set({ players })
 }));

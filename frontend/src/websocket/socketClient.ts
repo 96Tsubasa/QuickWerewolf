@@ -58,6 +58,55 @@ class SocketClient {
       });
     }
   }
+  subscribeToGame(roomId: string, callback: (state: import('../types').GameSessionState) => void) {
+    this.client?.subscribe(`/topic/game/${roomId}/state`, (message) => {
+      callback(JSON.parse(message.body));
+    });
+  }
+
+  subscribeToChat(roomId: string, callback: (msg: ChatMessage) => void) {
+    this.client?.subscribe(`/topic/chat/${roomId}`, (message) => {
+      try {
+        const parsed = JSON.parse(message.body);
+        callback(parsed);
+      } catch (e) {
+        callback({ senderId: 'SYSTEM', senderName: 'SYSTEM', content: message.body, type: 'SYSTEM', timestamp: new Date().toISOString() } as unknown as ChatMessage);
+      }
+    });
+  }
+
+  subscribeToWerewolfChat(roomId: string, callback: (msg: ChatMessage) => void) {
+    this.client?.subscribe(`/topic/chat/${roomId}/werewolf`, (message) => {
+      callback(JSON.parse(message.body));
+    });
+  }
+
+  subscribeToPrivateChat(roomId: string, playerId: string, callback: (msg: ChatMessage) => void) {
+    this.client?.subscribe(`/topic/chat/${roomId}/private/${playerId}`, (message) => {
+      callback(JSON.parse(message.body));
+    });
+  }
+
+  sendAction(gameId: string, actorId: string, targetId: string, actionType: string) {
+    this.client?.publish({
+      destination: `/app/game/${gameId}/action`,
+      body: JSON.stringify({ actorId, targetId, actionType })
+    });
+  }
+
+  sendVote(gameId: string, voterId: string, targetId: string) {
+    this.client?.publish({
+      destination: `/app/game/${gameId}/vote`,
+      body: JSON.stringify({ voterId, targetId })
+    });
+  }
+
+  sendChatMessage(roomId: string, senderId: string, chatType: string, receiverId: string | null, message: string) {
+    this.client?.publish({
+      destination: `/app/chat/${roomId}/send`,
+      body: JSON.stringify({ senderId, chatType, receiverId, message })
+    });
+  }
 }
 
 export const socketClient = new SocketClient();
