@@ -1,10 +1,13 @@
-package com.quickwerewolf.dto;
+package com.quickwerewolf.domain;
 
 import lombok.Data;
-import com.quickwerewolf.domain.Role;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Data
-public class PlayerDto {
+@NoArgsConstructor
+@AllArgsConstructor
+public class Player {
     private String deviceId;
     private String displayName;
     private Role role;

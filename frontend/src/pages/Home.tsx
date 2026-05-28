@@ -1,199 +1,91 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
-import { usePlayerStore } from '../store/playerStore';
-import { useRoomStore } from '../store/roomStore';
+import { useGameStore } from '../store/gameStore';
+import { Settings, Users, ArrowRight } from 'lucide-react';
 
 export const Home = () => {
-  const navigate = useNavigate();
-  const { deviceId, displayName, setPlayerInfo } = usePlayerStore();
-  const { setRoomState } = useRoomStore();
-  
-  const [name, setName] = useState(displayName);
-  const [roomCode, setRoomCode] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleCreateRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError('Please enter a display name');
-      return;
-    }
+    const [name, setName] = useState('');
+    const [roomCode, setRoomCode] = useState('');
+    const [mode, setMode] = useState<'HOME' | 'CREATE' | 'JOIN'>('HOME');
+    const navigate = useNavigate();
     
-    try {
-      setLoading(true);
-      setError('');
-      setPlayerInfo(deviceId, name);
-      const state = await api.createRoom(deviceId, name);
-      setRoomState(state);
-      navigate(`/room/${state.roomCode}`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create room');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const { setUserInfo, createRoom, joinRoom, deviceId } = useGameStore();
 
-  const handleJoinRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !roomCode.trim()) {
-      setError('Please enter both name and room code');
-      return;
-    }
+    const handleCreate = async () => {
+        if (!name.trim()) return;
+        setUserInfo(deviceId, name);
+        await createRoom();
+        const { roomState } = useGameStore.getState();
+        if (roomState) navigate(`/room/${roomState.roomId}`);
+    };
 
-    try {
-      setLoading(true);
-      setError('');
-      setPlayerInfo(deviceId, name);
-      const state = await api.joinRoom(roomCode.toUpperCase(), deviceId, name);
-      setRoomState(state);
-      navigate(`/room/${state.roomCode}`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to join room');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleJoin = async () => {
+        if (!name.trim() || !roomCode.trim()) return;
+        setUserInfo(deviceId, name);
+        try {
+            await joinRoom(roomCode);
+            navigate(`/room/${roomCode}`);
+        } catch (e) {
+            alert('Failed to join room. Check code.');
+        }
+    };
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Quick Werewolf</h1>
-        <p style={styles.subtitle}>A game of deception and deduction. Start a game with your friends right away! No need to create accounts or download any apps!</p>
-      </div>
-
-      <div className="glass-panel" style={styles.panel}>
-        {error && <div style={styles.error}>{error}</div>}
-        
-        <div style={styles.inputGroup}>
-          <label style={styles.label}>Display Name</label>
-          <input 
-            type="text" 
-            value={name} 
-            onChange={(e) => setName(e.target.value)} 
-            placeholder="Enter your name..."
-            maxLength={15}
-          />
+    return (
+        <div className="home-container">
+            <div className="glass-panel main-panel">
+                <h1 className="title">QuickWerewolf</h1>
+                <p className="subtitle">Real-time social deduction game</p>
+                
+                {mode === 'HOME' && (
+                    <div className="action-buttons">
+                        <button className="primary-btn" onClick={() => setMode('CREATE')}>
+                            <Settings size={20} /> Host Game
+                        </button>
+                        <button className="secondary-btn" onClick={() => setMode('JOIN')}>
+                            <Users size={20} /> Join Game
+                        </button>
+                    </div>
+                )}
+                
+                {mode === 'CREATE' && (
+                    <div className="form-container">
+                        <input 
+                            type="text" 
+                            placeholder="Enter your Display Name" 
+                            value={name} 
+                            onChange={(e) => setName(e.target.value)} 
+                            className="input-field"
+                        />
+                        <button className="primary-btn" onClick={handleCreate} disabled={!name.trim()}>
+                            Create Room <ArrowRight size={20} />
+                        </button>
+                        <button className="text-btn" onClick={() => setMode('HOME')}>Back</button>
+                    </div>
+                )}
+                
+                {mode === 'JOIN' && (
+                    <div className="form-container">
+                        <input 
+                            type="text" 
+                            placeholder="Display Name" 
+                            value={name} 
+                            onChange={(e) => setName(e.target.value)} 
+                            className="input-field"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Room Code" 
+                            value={roomCode} 
+                            onChange={(e) => setRoomCode(e.target.value.toUpperCase())} 
+                            className="input-field"
+                        />
+                        <button className="secondary-btn" onClick={handleJoin} disabled={!name.trim() || !roomCode.trim()}>
+                            Join Room <ArrowRight size={20} />
+                        </button>
+                        <button className="text-btn" onClick={() => setMode('HOME')}>Back</button>
+                    </div>
+                )}
+            </div>
         </div>
-
-        <div style={styles.actions}>
-          <button 
-            className="primary" 
-            style={styles.button} 
-            onClick={handleCreateRoom}
-            disabled={loading}
-          >
-            Create New Room
-          </button>
-          
-          <div style={styles.divider}>
-            <span style={styles.dividerText}>OR</span>
-          </div>
-
-          <div style={styles.joinGroup}>
-            <input 
-              type="text" 
-              value={roomCode} 
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase())} 
-              placeholder="ROOM CODE"
-              maxLength={6}
-              style={styles.codeInput}
-            />
-            <button 
-              className="primary" 
-              style={{ ...styles.button, flex: 1 }} 
-              onClick={handleJoinRoom}
-              disabled={loading}
-            >
-              Join Room
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    padding: '20px',
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '40px',
-  },
-  title: {
-    fontSize: '4rem',
-    background: 'linear-gradient(to right, #818cf8, #c084fc)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    marginBottom: '8px',
-  },
-  subtitle: {
-    color: 'var(--text-secondary)',
-    fontSize: '1.2rem',
-  },
-  panel: {
-    width: '100%',
-    maxWidth: '400px',
-    padding: '32px',
-  },
-  inputGroup: {
-    marginBottom: '24px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '8px',
-    color: 'var(--text-secondary)',
-    fontSize: '0.9rem',
-    fontWeight: 600,
-  },
-  actions: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  button: {
-    width: '100%',
-    padding: '14px',
-    fontSize: '1.1rem',
-  },
-  divider: {
-    position: 'relative',
-    textAlign: 'center',
-    margin: '16px 0',
-  },
-  dividerText: {
-    background: 'var(--panel-bg)',
-    padding: '0 16px',
-    color: 'var(--text-secondary)',
-    fontSize: '0.8rem',
-    position: 'relative',
-    zIndex: 1,
-  },
-  joinGroup: {
-    display: 'flex',
-    gap: '12px',
-  },
-  codeInput: {
-    width: '140px',
-    textAlign: 'center',
-    letterSpacing: '2px',
-    textTransform: 'uppercase',
-  },
-  error: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    color: '#ef4444',
-    padding: '12px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    textAlign: 'center',
-    border: '1px solid rgba(239, 68, 68, 0.2)',
-  }
+    );
 };

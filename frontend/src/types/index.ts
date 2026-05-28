@@ -1,21 +1,31 @@
+export type Role = 'VILLAGER' | 'SEER' | 'BODYGUARD' | 'WEREWOLF' | 'SERIAL_KILLER' | 'FOOL';
+
+export type GamePhase = 'LOBBY' | 'NIGHT' | 'DAY_DISCUSSION' | 'DAY_VOTING' | 'ENDED';
+
 export interface Player {
-  deviceId: string;
-  displayName: string;
-  isHost: boolean;
-  connected: boolean;
+    deviceId: string;
+    displayName: string;
+    role: Role | null;
+    host: boolean;
+    alive: boolean;
+    hasDisconnected: boolean;
 }
 
 export interface RoomState {
-  roomCode: string;
-  status: 'WAITING' | 'PLAYING' | 'ENDED';
-  hostPlayerId: string;
-  players: Player[];
+    roomId: string;
+    players: Player[];
+    maxPlayers: number;
+    currentPhase: GamePhase;
+    dayNumber: number;
+    nightNumber: number;
+    roleCounts: Record<Role, number>;
+    hostPlays: boolean;
+    phaseEndTime: number;
 }
 
 export interface ChatMessage {
-  senderId: string;
-  senderName: string;
-  content: string;
-  type: 'PUBLIC' | 'SYSTEM' | 'WEREWOLF' | 'PRIVATE_HOST';
-  timestamp: string;
+    id: string;
+    sender: string;
+    text: string;
+    isSystem?: boolean;
 }
