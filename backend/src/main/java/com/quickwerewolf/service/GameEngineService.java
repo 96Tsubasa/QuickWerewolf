@@ -22,7 +22,7 @@ public class GameEngineService {
 
     @Autowired
     private RoomRepository roomRepository;
-    
+
     @Autowired
     private RoomService roomService;
 
@@ -35,12 +35,12 @@ public class GameEngineService {
     private Map<String, ScheduledFuture<?>> roomSchedules = new ConcurrentHashMap<>();
 
     private static final int NIGHT_DURATION_SEC = 30;
-    private static final int DAY_DISCUSS_DURATION_SEC = 120;
+    private static final int DAY_DISCUSS_DURATION_SEC = 90;
     private static final int DAY_VOTE_DURATION_SEC = 30;
 
     public void startGame(String roomId, String hostDeviceId) {
         Room room = roomRepository.findById(roomId).orElseThrow();
-        
+
         if (room.getCurrentPhase() != GamePhase.LOBBY) {
             throw new IllegalStateException("Game already started");
         }
@@ -73,7 +73,7 @@ public class GameEngineService {
         room.setNightActions(new HashMap<>());
         room.setDayVotes(new HashMap<>());
         room.setPreviousProtectedPlayerId(null);
-        
+
         long endTime = System.currentTimeMillis() + (NIGHT_DURATION_SEC * 1000);
         room.setPhaseEndTime(endTime);
 
@@ -90,54 +90,57 @@ public class GameEngineService {
         if (future != null) {
             future.cancel(false);
         }
-        
+
         future = taskScheduler.schedule(() -> {
             advancePhase(roomId);
         }, Instant.ofEpochMilli(endTime));
-        
+
         roomSchedules.put(roomId, future);
     }
 
     public synchronized void advancePhase(String roomId) {
         Room room = roomRepository.findById(roomId).orElse(null);
-        if (room == null || room.getCurrentPhase() == GamePhase.ENDED) return;
+        if (room == null || room.getCurrentPhase() == GamePhase.ENDED)
+            return;
 
         if (room.getCurrentPhase() == GamePhase.NIGHT) {
             resolveNightActions(room);
-            if (checkWinConditions(room)) return;
-            
+            if (checkWinConditions(room))
+                return;
+
             room.setCurrentPhase(GamePhase.DAY_DISCUSSION);
             room.setDayNumber(room.getDayNumber() + 1);
             long endTime = System.currentTimeMillis() + (DAY_DISCUSS_DURATION_SEC * 1000);
             room.setPhaseEndTime(endTime);
             broadcastSystemMessage(roomId, "Day " + room.getDayNumber() + " started - Discussion time");
-            
+
             roomRepository.save(room);
             roomService.broadcastRoomState(roomId, roomService.getRoomState(roomId));
             scheduleNextPhase(roomId, endTime);
-            
+
         } else if (room.getCurrentPhase() == GamePhase.DAY_DISCUSSION) {
             room.setCurrentPhase(GamePhase.DAY_VOTING);
             room.setDayVotes(new HashMap<>());
             long endTime = System.currentTimeMillis() + (DAY_VOTE_DURATION_SEC * 1000);
             room.setPhaseEndTime(endTime);
             broadcastSystemMessage(roomId, "Voting time!");
-            
+
             roomRepository.save(room);
             roomService.broadcastRoomState(roomId, roomService.getRoomState(roomId));
             scheduleNextPhase(roomId, endTime);
-            
+
         } else if (room.getCurrentPhase() == GamePhase.DAY_VOTING) {
             resolveDayVotes(room);
-            if (checkWinConditions(room)) return;
-            
+            if (checkWinConditions(room))
+                return;
+
             room.setCurrentPhase(GamePhase.NIGHT);
             room.setNightNumber(room.getNightNumber() + 1);
             room.setNightActions(new HashMap<>());
             long endTime = System.currentTimeMillis() + (NIGHT_DURATION_SEC * 1000);
             room.setPhaseEndTime(endTime);
             broadcastSystemMessage(roomId, "Night " + room.getNightNumber() + " started");
-            
+
             roomRepository.save(room);
             roomService.broadcastRoomState(roomId, roomService.getRoomState(roomId));
             scheduleNextPhase(roomId, endTime);
@@ -147,16 +150,18 @@ public class GameEngineService {
     private void resolveNightActions(Room room) {
         String protectedId = null;
         String skTargetId = null;
-        
+
         List<String> wwTargets = new ArrayList<>();
-        
+
         for (Map.Entry<String, String> action : room.getNightActions().entrySet()) {
             String actorId = action.getKey();
             String targetId = action.getValue();
-            
-            Player actor = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(actorId)).findFirst().orElse(null);
-            if (actor == null || !actor.isAlive()) continue;
-            
+
+            Player actor = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(actorId)).findFirst()
+                    .orElse(null);
+            if (actor == null || !actor.isAlive())
+                continue;
+
             if (actor.getRole() == Role.BODYGUARD) {
                 protectedId = targetId;
                 room.setPreviousProtectedPlayerId(targetId);
@@ -165,20 +170,22 @@ public class GameEngineService {
             } else if (actor.getRole() == Role.WEREWOLF) {
                 wwTargets.add(targetId);
             } else if (actor.getRole() == Role.SEER) {
-                Player target = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(targetId)).findFirst().orElse(null);
+                Player target = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(targetId)).findFirst()
+                        .orElse(null);
                 if (target != null) {
-                    messagingTemplate.convertAndSendToUser(actorId, "/queue/room/" + room.getRoomId() + "/seer", 
-                        "You checked " + target.getDisplayName() + " and their role is " + target.getRole().name());
+                    messagingTemplate.convertAndSendToUser(actorId, "/queue/room/" + room.getRoomId() + "/seer",
+                            "You checked " + target.getDisplayName() + " and their role is " + target.getRole().name());
                 }
             }
         }
-        
+
         String wwFinalTarget = null;
         if (!wwTargets.isEmpty()) {
             // Count votes
             Map<String, Long> counts = wwTargets.stream().collect(Collectors.groupingBy(e -> e, Collectors.counting()));
             long maxVotes = counts.values().stream().max(Long::compare).orElse(0L);
-            List<String> tiedTargets = counts.entrySet().stream().filter(e -> e.getValue() == maxVotes).map(Map.Entry::getKey).collect(Collectors.toList());
+            List<String> tiedTargets = counts.entrySet().stream().filter(e -> e.getValue() == maxVotes)
+                    .map(Map.Entry::getKey).collect(Collectors.toList());
             wwFinalTarget = tiedTargets.get(new Random().nextInt(tiedTargets.size()));
         }
 
@@ -186,7 +193,7 @@ public class GameEngineService {
             killPlayer(room, wwFinalTarget);
             broadcastSystemMessage(room.getRoomId(), "A player was killed by werewolves.");
         }
-        
+
         if (skTargetId != null && !skTargetId.equals(protectedId)) {
             killPlayer(room, skTargetId);
             broadcastSystemMessage(room.getRoomId(), "A player was killed by the Serial Killer.");
@@ -195,20 +202,24 @@ public class GameEngineService {
 
     private void resolveDayVotes(Room room) {
         long aliveCount = room.getPlayers().stream().filter(Player::isAlive).count();
-        if (room.getDayVotes().isEmpty()) return;
+        if (room.getDayVotes().isEmpty())
+            return;
 
-        Map<String, Long> counts = room.getDayVotes().values().stream().collect(Collectors.groupingBy(e -> e, Collectors.counting()));
+        Map<String, Long> counts = room.getDayVotes().values().stream()
+                .collect(Collectors.groupingBy(e -> e, Collectors.counting()));
         long maxVotes = counts.values().stream().max(Long::compare).orElse(0L);
-        
-        if (maxVotes >= (aliveCount / 2.0)) {
-            List<String> tiedTargets = counts.entrySet().stream().filter(e -> e.getValue() == maxVotes).map(Map.Entry::getKey).collect(Collectors.toList());
+
+        if (maxVotes >= (aliveCount / 2)) {
+            List<String> tiedTargets = counts.entrySet().stream().filter(e -> e.getValue() == maxVotes)
+                    .map(Map.Entry::getKey).collect(Collectors.toList());
             String lynchedId = tiedTargets.get(new Random().nextInt(tiedTargets.size()));
-            
-            Player lynched = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(lynchedId)).findFirst().orElse(null);
+
+            Player lynched = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(lynchedId)).findFirst()
+                    .orElse(null);
             if (lynched != null) {
                 lynched.setAlive(false);
                 broadcastSystemMessage(room.getRoomId(), lynched.getDisplayName() + " was lynched by the village.");
-                
+
                 if (lynched.getRole() == Role.FOOL) {
                     endGame(room, "Fool wins! " + lynched.getDisplayName() + " was successfully lynched.");
                 }
@@ -220,9 +231,9 @@ public class GameEngineService {
 
     private void killPlayer(Room room, String targetId) {
         room.getPlayers().stream()
-            .filter(p -> p.getDeviceId().equals(targetId))
-            .findFirst()
-            .ifPresent(p -> p.setAlive(false));
+                .filter(p -> p.getDeviceId().equals(targetId))
+                .findFirst()
+                .ifPresent(p -> p.setAlive(false));
     }
 
     private boolean checkWinConditions(Room room) {
@@ -254,39 +265,46 @@ public class GameEngineService {
         roomRepository.save(room);
         broadcastSystemMessage(room.getRoomId(), "GAME OVER: " + message);
         roomService.broadcastRoomState(room.getRoomId(), roomService.getRoomState(room.getRoomId()));
-        
+
         ScheduledFuture<?> future = roomSchedules.remove(room.getRoomId());
-        if (future != null) future.cancel(false);
+        if (future != null)
+            future.cancel(false);
     }
 
     public void handleNightAction(String roomId, String deviceId, String targetId) {
         Room room = roomRepository.findById(roomId).orElseThrow();
-        if (room.getCurrentPhase() != GamePhase.NIGHT) return;
-        
-        Player actor = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(deviceId)).findFirst().orElse(null);
-        if (actor == null || !actor.isAlive()) return;
-        
+        if (room.getCurrentPhase() != GamePhase.NIGHT)
+            return;
+
+        Player actor = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(deviceId)).findFirst()
+                .orElse(null);
+        if (actor == null || !actor.isAlive())
+            return;
+
         if (actor.getRole() == Role.BODYGUARD && targetId.equals(room.getPreviousProtectedPlayerId())) {
             throw new IllegalArgumentException("Cannot protect the same player twice in a row");
         }
-        
+
         room.getNightActions().put(deviceId, targetId);
         roomRepository.save(room);
     }
 
     public void handleDayVote(String roomId, String deviceId, String targetId) {
         Room room = roomRepository.findById(roomId).orElseThrow();
-        if (room.getCurrentPhase() != GamePhase.DAY_VOTING) return;
-        
-        Player actor = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(deviceId)).findFirst().orElse(null);
-        if (actor == null || !actor.isAlive()) return;
-        
+        if (room.getCurrentPhase() != GamePhase.DAY_VOTING)
+            return;
+
+        Player actor = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(deviceId)).findFirst()
+                .orElse(null);
+        if (actor == null || !actor.isAlive())
+            return;
+
         room.getDayVotes().put(deviceId, targetId);
         roomRepository.save(room);
     }
 
     private void broadcastSystemMessage(String roomId, String text) {
-        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/chat", 
-            Map.of("sender", "System", "text", text, "isSystem", true));
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/chat",
+                Map.of("sender", "System", "text", text, "isSystem", true));
     }
 }

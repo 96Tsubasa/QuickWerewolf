@@ -22,7 +22,7 @@
 
   + Fool (Solo): Only wins if you are lynched at the end of a day.
 
-- Game flow: Start from Night 1. Each night has 30s duration. After Night 1 is Day 1 with discussion phase (120s) that everyone can chat to discuss, voting phase (30s) for everyone to select a player to be lynched. A player will be lynched if they receive the most votes and at least half the surviving players vote to kill them (For example, at least 5 votes is required if there are 11 surviving players left). Same logic as werewolves tie votes at night, a random selection is made when there's vote tie during the day. The duration above are all default values and can be changed by the host. The game continue this loop until any team meet their winning conditions:
+- Game flow: Start from Night 1. Each night has 30s duration. After Night 1 is Day 1 with discussion phase (90s) that everyone can chat to discuss, voting phase (30s) for everyone to select a player to be lynched. A player will be lynched if they receive the most votes and at least half the surviving players vote to kill them (For example, at least 5 votes is required if there are 11 surviving players left). Same logic as werewolves tie votes at night, a random selection is made when there's vote tie during the day. The duration above are all default values and can be changed by the host. The game continue this loop until any team meet their winning conditions:
 
   + Village: Eliminate all threatening teams: werewolf and solo teams (Fool is exception, they don't have to be killed for village to win)
 
