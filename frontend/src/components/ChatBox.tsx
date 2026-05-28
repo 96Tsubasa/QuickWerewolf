@@ -38,7 +38,7 @@ export const ChatBox = () => {
 
     const canChat = () => {
         if (!roomState || !myPlayer || !myPlayer.alive) return false;
-        if (activeTab === 'GLOBAL' && roomState.currentPhase !== 'DAY_DISCUSSION') return false;
+        if (activeTab === 'GLOBAL' && roomState.currentPhase !== 'DAY_DISCUSSION' && roomState.currentPhase !== 'DAY_VOTING') return false;
         if (activeTab === 'WEREWOLF' && roomState.currentPhase !== 'NIGHT') return false;
         return true;
     };

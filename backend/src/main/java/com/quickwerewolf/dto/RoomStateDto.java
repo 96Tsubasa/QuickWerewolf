@@ -17,4 +17,5 @@ public class RoomStateDto {
     private Map<Role, Integer> roleCounts;
     private boolean hostPlays;
     private long phaseEndTime;
+    private String previousProtectedPlayerId;
 }

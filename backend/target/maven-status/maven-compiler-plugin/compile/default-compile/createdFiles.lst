@@ -9,7 +9,6 @@ com\quickwerewolf\domain\Room.class
 com\quickwerewolf\config\WebSocketConfig.class
 com\quickwerewolf\controller\RoomController.class
 com\quickwerewolf\domain\Game.class
-com\quickwerewolf\controller\LobbyWebSocketController.class
 com\quickwerewolf\domain\Player.class
 com\quickwerewolf\QuickWerewolfApplication.class
 com\quickwerewolf\service\GameEngineService.class

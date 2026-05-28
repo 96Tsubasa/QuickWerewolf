@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { Settings, Users, ArrowRight } from 'lucide-react';
@@ -9,7 +9,11 @@ export const Home = () => {
     const [mode, setMode] = useState<'HOME' | 'CREATE' | 'JOIN'>('HOME');
     const navigate = useNavigate();
     
-    const { setUserInfo, createRoom, joinRoom, deviceId } = useGameStore();
+    const { setUserInfo, createRoom, joinRoom, deviceId, leaveRoom } = useGameStore();
+
+    useEffect(() => {
+        leaveRoom();
+    }, [leaveRoom]);
 
     const handleCreate = async () => {
         if (!name.trim()) return;

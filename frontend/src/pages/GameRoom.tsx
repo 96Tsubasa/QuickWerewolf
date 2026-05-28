@@ -55,6 +55,7 @@ export const GameRoom = () => {
         if (roomState.currentPhase === 'DAY_VOTING') return true;
         if (roomState.currentPhase === 'NIGHT') {
             const role = myPlayer?.role;
+            if (role === 'BODYGUARD' && selectedPlayer === roomState.previousProtectedPlayerId) return false;
             return role === 'WEREWOLF' || role === 'SERIAL_KILLER' || role === 'BODYGUARD' || role === 'SEER';
         }
         return false;
@@ -81,15 +82,17 @@ export const GameRoom = () => {
                             
                             const isSelected = selectedPlayer === p.deviceId;
                             const isMe = p.deviceId === deviceId;
+                            const isPrevProtected = myPlayer?.role === 'BODYGUARD' && roomState.currentPhase === 'NIGHT' && p.deviceId === roomState.previousProtectedPlayerId;
                             
                             return (
                                 <div 
                                     key={p.deviceId} 
-                                    className={`player-card ${!p.alive ? 'dead' : ''} ${isSelected ? 'selected' : ''} ${isMe ? 'me' : ''}`}
-                                    onClick={() => p.alive && setSelectedPlayer(p.deviceId)}
+                                    className={`player-card ${!p.alive ? 'dead' : ''} ${isSelected ? 'selected' : ''} ${isMe ? 'me' : ''} ${isPrevProtected ? 'protected-prev' : ''}`}
+                                    onClick={() => p.alive && !isPrevProtected && setSelectedPlayer(p.deviceId)}
                                 >
                                     <span className="player-name">{p.displayName}</span>
                                     {!p.alive && <span className="dead-label">DEAD</span>}
+                                    {isPrevProtected && <span className="afk-label" style={{background: 'orange'}}>Protected Last Night</span>}
                                     {p.hasDisconnected && <span className="afk-label">AFK</span>}
                                 </div>
                             );

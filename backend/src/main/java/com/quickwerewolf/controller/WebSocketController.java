@@ -44,9 +44,9 @@ public class WebSocketController {
         
         // This could be between a player and host.
         // Send to specific target
-        messagingTemplate.convertAndSendToUser(targetDeviceId, "/queue/room/" + roomId + "/host", payload);
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/host/" + targetDeviceId, payload);
         // And send back to sender so they see it
-        messagingTemplate.convertAndSendToUser(senderDeviceId, "/queue/room/" + roomId + "/host", payload);
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/host/" + senderDeviceId, payload);
     }
 
     @MessageMapping("/room/{roomId}/action/night")
@@ -57,7 +57,7 @@ public class WebSocketController {
         try {
             gameEngineService.handleNightAction(roomId, deviceId, targetId);
         } catch (IllegalArgumentException e) {
-            messagingTemplate.convertAndSendToUser(deviceId, "/queue/room/" + roomId + "/error", e.getMessage());
+            messagingTemplate.convertAndSend("/topic/room/" + roomId + "/error/" + deviceId, e.getMessage());
         }
     }
 

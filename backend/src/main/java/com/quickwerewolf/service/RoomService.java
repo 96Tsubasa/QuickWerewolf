@@ -164,6 +164,7 @@ public class RoomService {
         state.setRoleCounts(room.getRoleCounts());
         state.setHostPlays(room.isHostPlays());
         state.setPhaseEndTime(room.getPhaseEndTime());
+        state.setPreviousProtectedPlayerId(room.getPreviousProtectedPlayerId());
         
         List<PlayerDto> playerDtos = room.getPlayers().stream().map(p -> {
             PlayerDto dto = new PlayerDto();

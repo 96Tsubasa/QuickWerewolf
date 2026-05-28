@@ -21,6 +21,7 @@ export interface RoomState {
     roleCounts: Record<Role, number>;
     hostPlays: boolean;
     phaseEndTime: number;
+    previousProtectedPlayerId?: string;
 }
 
 export interface ChatMessage {

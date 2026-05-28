@@ -173,7 +173,7 @@ public class GameEngineService {
                 Player target = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(targetId)).findFirst()
                         .orElse(null);
                 if (target != null) {
-                    messagingTemplate.convertAndSendToUser(actorId, "/queue/room/" + room.getRoomId() + "/seer",
+                    messagingTemplate.convertAndSend("/topic/room/" + room.getRoomId() + "/seer/" + actorId,
                             "You checked " + target.getDisplayName() + " and their role is " + target.getRole().name());
                 }
             }

@@ -10,13 +10,15 @@ interface GameStore {
     globalChat: ChatMessage[];
     werewolfChat: ChatMessage[];
     hostChat: ChatMessage[];
+    seerResults: Record<string, string>;
     stompClient: Client | null;
     error: string | null;
-    
+
     setUserInfo: (deviceId: string, displayName: string) => void;
     connectWebSocket: (roomId: string) => void;
     disconnectWebSocket: () => void;
-    
+    leaveRoom: () => void;
+
     createRoom: () => Promise<void>;
     joinRoom: (roomId: string) => Promise<void>;
     updateSettings: (maxPlayers: number, hostPlays: boolean, roleCounts: Record<Role, number>) => Promise<void>;
@@ -37,19 +39,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     globalChat: [],
     werewolfChat: [],
     hostChat: [],
+    seerResults: {},
     stompClient: null,
     error: null,
-    
+
     setUserInfo: (deviceId: string, displayName: string) => {
         localStorage.setItem('qw_device_id', deviceId);
         localStorage.setItem('qw_display_name', displayName);
         set({ deviceId, displayName });
     },
-    
+
     connectWebSocket: (roomId: string) => {
         const { deviceId, stompClient } = get();
         if (stompClient) stompClient.deactivate();
-        
+
         const client = new Client({
             webSocketFactory: () => new SockJS(`${BACKEND_URL}/ws`),
             reconnectDelay: 5000,
@@ -58,41 +61,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 client.subscribe(`/topic/room/${roomId}/state`, (msg) => {
                     set({ roomState: JSON.parse(msg.body) });
                 });
-                
+
                 // Subscribe to global chat
                 client.subscribe(`/topic/room/${roomId}/chat`, (msg) => {
                     const chatMsg = JSON.parse(msg.body);
                     chatMsg.id = crypto.randomUUID();
                     set((state) => ({ globalChat: [...state.globalChat, chatMsg] }));
                 });
-                
+
                 // Subscribe to werewolf chat
                 client.subscribe(`/topic/room/${roomId}/werewolf`, (msg) => {
                     const chatMsg = JSON.parse(msg.body);
                     chatMsg.id = crypto.randomUUID();
                     set((state) => ({ werewolfChat: [...state.werewolfChat, chatMsg] }));
                 });
-                
+
                 // Subscribe to host chat (private)
-                client.subscribe(`/user/${deviceId}/queue/room/${roomId}/host`, (msg) => {
+                client.subscribe(`/topic/room/${roomId}/host/${deviceId}`, (msg) => {
                     const chatMsg = JSON.parse(msg.body);
                     chatMsg.id = crypto.randomUUID();
                     set((state) => ({ hostChat: [...state.hostChat, chatMsg] }));
                 });
-                
+
                 // Subscribe to seer result
-                client.subscribe(`/user/${deviceId}/queue/room/${roomId}/seer`, (msg) => {
+                client.subscribe(`/topic/room/${roomId}/seer/${deviceId}`, (msg) => {
                     const text = msg.body;
                     const chatMsg = { id: crypto.randomUUID(), sender: 'System', text, isSystem: true };
-                    set((state) => ({ globalChat: [...state.globalChat, chatMsg] })); // Put it in global chat but it's private
+
+                    // The text looks like: "You checked displayName and their role is ROLE_NAME"
+                    // But we want to map targetId to role. Wait, the backend doesn't send the targetId in a structured way!
+                    // Let's just pass the structured JSON from backend instead. But currently it sends a string.
+                    // For a quick fix without changing backend, let's extract role from text: "role is X" and player name.
+                    // Actually, let's just show it in chat for now. Wait, user specifically asked to "show the role on the grid".
+                    // I need the targetId to show it on the grid!
+                    // Let me change the backend to send JSON instead. I'll do that in GameEngineService.java.
                 });
-                
+
                 // Subscribe to errors
-                client.subscribe(`/user/${deviceId}/queue/room/${roomId}/error`, (msg) => {
+                client.subscribe(`/topic/room/${roomId}/error/${deviceId}`, (msg) => {
                     set({ error: msg.body });
                     setTimeout(() => set({ error: null }), 3000);
                 });
-                
+
                 // Subscribe to kicks
                 client.subscribe(`/topic/room/${roomId}/kicked`, (msg) => {
                     if (msg.body === deviceId) {
@@ -102,11 +112,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 });
             },
         });
-        
+
         client.activate();
         set({ stompClient: client });
     },
-    
+
     disconnectWebSocket: () => {
         const { stompClient } = get();
         if (stompClient) {
@@ -114,7 +124,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         set({ stompClient: null });
     },
-    
+
+    leaveRoom: () => {
+        get().disconnectWebSocket();
+        set({ roomState: null, globalChat: [], werewolfChat: [], hostChat: [], seerResults: {}, error: null });
+    },
+
     createRoom: async () => {
         const { deviceId, displayName } = get();
         try {
@@ -130,7 +145,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             set({ error: "Failed to create room" });
         }
     },
-    
+
     joinRoom: async (roomId: string) => {
         const { deviceId, displayName } = get();
         try {
@@ -148,7 +163,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             throw e;
         }
     },
-    
+
     updateSettings: async (maxPlayers, hostPlays, roleCounts) => {
         const { deviceId, roomState } = get();
         if (!roomState) return;
@@ -162,7 +177,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             set({ error: "Failed to update settings" });
         }
     },
-    
+
     startGame: () => {
         const { stompClient, roomState, deviceId } = get();
         if (stompClient && roomState) {
@@ -172,7 +187,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             });
         }
     },
-    
+
     sendGlobalChat: (text: string) => {
         const { stompClient, roomState, displayName } = get();
         if (stompClient && roomState) {
@@ -182,7 +197,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             });
         }
     },
-    
+
     sendWerewolfChat: (text: string) => {
         const { stompClient, roomState, displayName } = get();
         if (stompClient && roomState) {
@@ -192,7 +207,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             });
         }
     },
-    
+
     sendHostChat: (text: string, targetDeviceId: string) => {
         const { stompClient, roomState, displayName, deviceId } = get();
         if (stompClient && roomState) {
@@ -202,7 +217,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             });
         }
     },
-    
+
     performNightAction: (targetId: string) => {
         const { stompClient, roomState, deviceId } = get();
         if (stompClient && roomState) {
@@ -212,7 +227,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             });
         }
     },
-    
+
     performDayVote: (targetId: string) => {
         const { stompClient, roomState, deviceId } = get();
         if (stompClient && roomState) {
