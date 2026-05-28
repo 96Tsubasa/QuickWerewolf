@@ -1,21 +1,14 @@
 import { create } from 'zustand';
+import type { RoomState } from '../types';
 
-interface RoomState {
-  roomId: string | null;
-  players: any[];
-  isHost: boolean;
-  status: 'WAITING' | 'PLAYING' | 'ENDED';
-  setRoom: (roomId: string, isHost: boolean) => void;
-  updatePlayers: (players: any[]) => void;
-  setStatus: (status: 'WAITING' | 'PLAYING' | 'ENDED') => void;
+interface RoomStore {
+  roomState: RoomState | null;
+  setRoomState: (state: RoomState | null) => void;
+  clearRoom: () => void;
 }
 
-export const useRoomStore = create<RoomState>((set) => ({
-  roomId: null,
-  players: [],
-  isHost: false,
-  status: 'WAITING',
-  setRoom: (roomId, isHost) => set({ roomId, isHost }),
-  updatePlayers: (players) => set({ players }),
-  setStatus: (status) => set({ status })
+export const useRoomStore = create<RoomStore>((set) => ({
+  roomState: null,
+  setRoomState: (state) => set({ roomState: state }),
+  clearRoom: () => set({ roomState: null }),
 }));

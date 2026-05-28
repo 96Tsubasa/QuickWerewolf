@@ -1,10 +1,10 @@
 # AGENTS.md
 
-# Webapp Game — Werewolf / Wolvesville-inspired
+# Webapp Game — Quick Werewolf / Wolvesville-inspired
 
 ## Project Goal
 
-Build a mobile-first, browser-based social deduction game inspired by Wolvesville.
+Build a mobile-first, browser-based social deduction game inspired by Wolvesville. The App Name is "Quick Werewolf".
 
 Primary goals:
 
@@ -765,3 +765,8 @@ Planned support:
 - Multiple rooms per server
 - Match replay
 - Mobile optimization
+
+# Other notes
+
+- **Update Progress.md after each task** to clarify the current progress for future tasks. 
+- Don't over-engineer the system; focus on simplicity and clarity, and avoid unnecessary abstraction layers or "enterprise" patterns that don't add value to this specific project.
