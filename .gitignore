@@ -2,3 +2,8 @@
 /backend/target
 
 *.class
+*.log*
+
+.classpath
+.project
+.settings
