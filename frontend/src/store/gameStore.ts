@@ -85,16 +85,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
                 // Subscribe to seer result
                 client.subscribe(`/topic/room/${roomId}/seer/${deviceId}`, (msg) => {
-                    const text = msg.body;
-                    const chatMsg = { id: crypto.randomUUID(), sender: 'System', text, isSystem: true };
+                    const data = JSON.parse(msg.body);
+                    const chatMsg = { id: crypto.randomUUID(), sender: 'System', text: data.message, isSystem: true };
 
-                    // The text looks like: "You checked displayName and their role is ROLE_NAME"
-                    // But we want to map targetId to role. Wait, the backend doesn't send the targetId in a structured way!
-                    // Let's just pass the structured JSON from backend instead. But currently it sends a string.
-                    // For a quick fix without changing backend, let's extract role from text: "role is X" and player name.
-                    // Actually, let's just show it in chat for now. Wait, user specifically asked to "show the role on the grid".
-                    // I need the targetId to show it on the grid!
-                    // Let me change the backend to send JSON instead. I'll do that in GameEngineService.java.
+                    set((state) => ({
+                        globalChat: [...state.globalChat, chatMsg],
+                        seerResults: { ...state.seerResults, [data.targetId]: data.role }
+                    }));
                 });
 
                 // Subscribe to errors

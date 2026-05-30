@@ -391,6 +391,18 @@ button:disabled {
   border-radius: 4px;
 }
 
+.seer-role-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .action-area {
   display: flex;
   justify-content: center;

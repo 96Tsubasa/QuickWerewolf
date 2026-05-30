@@ -3,7 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { ChatBox } from '../components/ChatBox';
 
 export const GameRoom = () => {
-    const { roomState, deviceId, performNightAction, performDayVote } = useGameStore();
+    const { roomState, deviceId, performNightAction, performDayVote, seerResults } = useGameStore();
     const [timeLeft, setTimeLeft] = useState(0);
     const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
 
@@ -83,6 +83,7 @@ export const GameRoom = () => {
                             const isSelected = selectedPlayer === p.deviceId;
                             const isMe = p.deviceId === deviceId;
                             const isPrevProtected = myPlayer?.role === 'BODYGUARD' && roomState.currentPhase === 'NIGHT' && p.deviceId === roomState.previousProtectedPlayerId;
+                            const seerKnownRole = seerResults[p.deviceId];
                             
                             return (
                                 <div 
@@ -91,6 +92,7 @@ export const GameRoom = () => {
                                     onClick={() => p.alive && !isPrevProtected && setSelectedPlayer(p.deviceId)}
                                 >
                                     <span className="player-name">{p.displayName}</span>
+                                    {seerKnownRole && <span className="seer-role-label">{seerKnownRole.replace('_', ' ')}</span>}
                                     {!p.alive && <span className="dead-label">DEAD</span>}
                                     {isPrevProtected && <span className="afk-label" style={{background: 'orange'}}>Protected Last Night</span>}
                                     {p.hasDisconnected && <span className="afk-label">AFK</span>}

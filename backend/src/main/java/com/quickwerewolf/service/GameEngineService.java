@@ -35,7 +35,7 @@ public class GameEngineService {
     private Map<String, ScheduledFuture<?>> roomSchedules = new ConcurrentHashMap<>();
 
     private static final int NIGHT_DURATION_SEC = 30;
-    private static final int DAY_DISCUSS_DURATION_SEC = 90;
+    private static final int DAY_DISCUSS_DURATION_SEC = 30;
     private static final int DAY_VOTE_DURATION_SEC = 30;
 
     public void startGame(String roomId, String hostDeviceId) {
@@ -170,12 +170,7 @@ public class GameEngineService {
             } else if (actor.getRole() == Role.WEREWOLF) {
                 wwTargets.add(targetId);
             } else if (actor.getRole() == Role.SEER) {
-                Player target = room.getPlayers().stream().filter(p -> p.getDeviceId().equals(targetId)).findFirst()
-                        .orElse(null);
-                if (target != null) {
-                    messagingTemplate.convertAndSend("/topic/room/" + room.getRoomId() + "/seer/" + actorId,
-                            "You checked " + target.getDisplayName() + " and their role is " + target.getRole().name());
-                }
+                // Seer result is now sent immediately in handleNightAction, not here
             }
         }
 
@@ -287,6 +282,21 @@ public class GameEngineService {
 
         room.getNightActions().put(deviceId, targetId);
         roomRepository.save(room);
+
+        // If actor is a Seer, send result immediately
+        if (actor.getRole() == Role.SEER) {
+            Player target = room.getPlayers().stream()
+                    .filter(p -> p.getDeviceId().equals(targetId)).findFirst().orElse(null);
+            if (target != null) {
+                messagingTemplate.convertAndSend("/topic/room/" + roomId + "/seer/" + deviceId,
+                        Map.of(
+                                "targetId", target.getDeviceId(),
+                                "targetName", target.getDisplayName(),
+                                "role", target.getRole().name(),
+                                "message", "You checked " + target.getDisplayName() + " — their role is "
+                                        + target.getRole().name().replace("_", " ")));
+            }
+        }
     }
 
     public void handleDayVote(String roomId, String deviceId, String targetId) {
