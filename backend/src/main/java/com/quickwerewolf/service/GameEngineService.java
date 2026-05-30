@@ -74,7 +74,8 @@ public class GameEngineService {
         room.setDayVotes(new HashMap<>());
         room.setPreviousProtectedPlayerId(null);
 
-        long endTime = System.currentTimeMillis() + (NIGHT_DURATION_SEC * 1000);
+        long nightDuration = room.getPhaseDurations().getOrDefault("NIGHT", (long) NIGHT_DURATION_SEC);
+        long endTime = System.currentTimeMillis() + (nightDuration * 1000);
         room.setPhaseEndTime(endTime);
 
         roomRepository.save(room);
@@ -110,7 +111,8 @@ public class GameEngineService {
 
             room.setCurrentPhase(GamePhase.DAY_DISCUSSION);
             room.setDayNumber(room.getDayNumber() + 1);
-            long endTime = System.currentTimeMillis() + (DAY_DISCUSS_DURATION_SEC * 1000);
+            long dayDiscussDuration = room.getPhaseDurations().getOrDefault("DAY_DISCUSSION", (long) DAY_DISCUSS_DURATION_SEC);
+            long endTime = System.currentTimeMillis() + (dayDiscussDuration * 1000);
             room.setPhaseEndTime(endTime);
             broadcastSystemMessage(roomId, "Day " + room.getDayNumber() + " started - Discussion time");
 
@@ -121,7 +123,8 @@ public class GameEngineService {
         } else if (room.getCurrentPhase() == GamePhase.DAY_DISCUSSION) {
             room.setCurrentPhase(GamePhase.DAY_VOTING);
             room.setDayVotes(new HashMap<>());
-            long endTime = System.currentTimeMillis() + (DAY_VOTE_DURATION_SEC * 1000);
+            long dayVoteDuration = room.getPhaseDurations().getOrDefault("DAY_VOTING", (long) DAY_VOTE_DURATION_SEC);
+            long endTime = System.currentTimeMillis() + (dayVoteDuration * 1000);
             room.setPhaseEndTime(endTime);
             broadcastSystemMessage(roomId, "Voting time!");
 
@@ -137,7 +140,8 @@ public class GameEngineService {
             room.setCurrentPhase(GamePhase.NIGHT);
             room.setNightNumber(room.getNightNumber() + 1);
             room.setNightActions(new HashMap<>());
-            long endTime = System.currentTimeMillis() + (NIGHT_DURATION_SEC * 1000);
+            long nightDuration = room.getPhaseDurations().getOrDefault("NIGHT", (long) NIGHT_DURATION_SEC);
+            long endTime = System.currentTimeMillis() + (nightDuration * 1000);
             room.setPhaseEndTime(endTime);
             broadcastSystemMessage(roomId, "Night " + room.getNightNumber() + " started");
 
@@ -253,6 +257,23 @@ public class GameEngineService {
         }
 
         return false;
+    }
+
+    public void endGameByHost(String roomId, String hostDeviceId) {
+        Room room = roomRepository.findById(roomId).orElseThrow();
+        
+        boolean isHost = room.getPlayers().stream()
+                .anyMatch(p -> p.getDeviceId().equals(hostDeviceId) && p.isHost());
+        
+        if (!isHost) {
+            throw new IllegalStateException("Only host can end the game");
+        }
+        
+        if (room.getCurrentPhase() == GamePhase.LOBBY) {
+            throw new IllegalStateException("Game has not started yet");
+        }
+        
+        endGame(room, "Game ended by host");
     }
 
     private void endGame(Room room, String message) {

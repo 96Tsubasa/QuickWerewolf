@@ -1,121 +1,194 @@
-import { useState, useEffect } from 'react';
-import { useGameStore } from '../store/gameStore';
-import { ChatBox } from '../components/ChatBox';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useGameStore } from "../store/gameStore";
+import { ChatBox } from "../components/ChatBox";
 
 export const GameRoom = () => {
-    const { roomState, deviceId, performNightAction, performDayVote, seerResults } = useGameStore();
-    const [timeLeft, setTimeLeft] = useState(0);
-    const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const {
+    roomState,
+    deviceId,
+    performNightAction,
+    performDayVote,
+    seerResults,
+    leaveRoom,
+    endGame,
+  } = useGameStore();
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!roomState?.phaseEndTime) return;
-        
-        const updateTimer = () => {
-            const remaining = Math.max(0, Math.floor((roomState.phaseEndTime - Date.now()) / 1000));
-            setTimeLeft(remaining);
-        };
-        
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
-        return () => clearInterval(interval);
-    }, [roomState?.phaseEndTime]);
+  useEffect(() => {
+    if (!roomState?.phaseEndTime) return;
 
-    if (!roomState) return null;
-
-    const myPlayer = roomState.players.find(p => p.deviceId === deviceId);
-    const isAlive = myPlayer?.alive;
-
-    const getActionLabel = () => {
-        if (!isAlive) return "You are dead";
-        if (roomState.currentPhase === 'DAY_VOTING') return "Vote to Lynch";
-        if (roomState.currentPhase === 'NIGHT') {
-            switch (myPlayer?.role) {
-                case 'WEREWOLF': return "Vote to Kill";
-                case 'SERIAL_KILLER': return "Kill";
-                case 'BODYGUARD': return "Protect";
-                case 'SEER': return "Check Role";
-                default: return "Sleeping...";
-            }
-        }
-        return "Waiting...";
+    const updateTimer = () => {
+      const remaining = Math.max(
+        0,
+        Math.floor((roomState.phaseEndTime - Date.now()) / 1000),
+      );
+      setTimeLeft(remaining);
     };
 
-    const handleAction = () => {
-        if (!selectedPlayer || !isAlive) return;
-        if (roomState.currentPhase === 'DAY_VOTING') {
-            performDayVote(selectedPlayer);
-        } else if (roomState.currentPhase === 'NIGHT') {
-            performNightAction(selectedPlayer);
-        }
-        setSelectedPlayer(null); // Reset selection after action
-    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [roomState?.phaseEndTime]);
 
-    const canPerformAction = () => {
-        if (!isAlive || !selectedPlayer) return false;
-        if (roomState.currentPhase === 'DAY_VOTING') return true;
-        if (roomState.currentPhase === 'NIGHT') {
-            const role = myPlayer?.role;
-            if (role === 'BODYGUARD' && selectedPlayer === roomState.previousProtectedPlayerId) return false;
-            return role === 'WEREWOLF' || role === 'SERIAL_KILLER' || role === 'BODYGUARD' || role === 'SEER';
-        }
+  if (!roomState) return null;
+
+  const myPlayer = roomState.players.find((p) => p.deviceId === deviceId);
+  const isAlive = myPlayer?.alive;
+  const isHost = myPlayer?.host;
+
+  const getActionLabel = () => {
+    if (!isAlive) return "You are dead";
+    if (roomState.currentPhase === "DAY_VOTING") return "Vote to Lynch";
+    if (roomState.currentPhase === "NIGHT") {
+      switch (myPlayer?.role) {
+        case "WEREWOLF":
+          return "Vote to Kill";
+        case "SERIAL_KILLER":
+          return "Kill";
+        case "BODYGUARD":
+          return "Protect";
+        case "SEER":
+          return "Check Role";
+        default:
+          return "Sleeping...";
+      }
+    }
+    return "Waiting...";
+  };
+
+  const handleAction = () => {
+    if (!selectedPlayer || !isAlive) return;
+    if (roomState.currentPhase === "DAY_VOTING") {
+      performDayVote(selectedPlayer);
+    } else if (roomState.currentPhase === "NIGHT") {
+      performNightAction(selectedPlayer);
+    }
+    setSelectedPlayer(null); // Reset selection after action
+  };
+
+  const canPerformAction = () => {
+    if (!isAlive || !selectedPlayer) return false;
+    if (roomState.currentPhase === "DAY_VOTING") return true;
+    if (roomState.currentPhase === "NIGHT") {
+      const role = myPlayer?.role;
+      if (
+        role === "BODYGUARD" &&
+        selectedPlayer === roomState.previousProtectedPlayerId
+      )
         return false;
-    };
+      return (
+        role === "WEREWOLF" ||
+        role === "SERIAL_KILLER" ||
+        role === "BODYGUARD" ||
+        role === "SEER"
+      );
+    }
+    return false;
+  };
 
-    return (
-        <div className="game-room-container">
-            <div className="game-header glass-panel">
-                <div className="phase-info">
-                    <h2>{roomState.currentPhase.replace('_', ' ')}</h2>
-                    <p className="timer">{timeLeft}s</p>
-                </div>
-                <div className="player-info">
-                    <h3>Role: {myPlayer?.role?.replace('_', ' ') || 'Spectator'}</h3>
-                    <p className={isAlive ? 'status-alive' : 'status-dead'}>{isAlive ? 'ALIVE' : 'DEAD'}</p>
-                </div>
-            </div>
+  const handleLeaveGame = () => {
+    leaveRoom();
+    navigate("/");
+  };
 
-            <div className="game-main">
-                <div className="grid-container glass-panel">
-                    <div className="player-grid">
-                        {roomState.players.map(p => {
-                            if (!roomState.hostPlays && p.host) return null; // Skip non-playing host
-                            
-                            const isSelected = selectedPlayer === p.deviceId;
-                            const isMe = p.deviceId === deviceId;
-                            const isPrevProtected = myPlayer?.role === 'BODYGUARD' && roomState.currentPhase === 'NIGHT' && p.deviceId === roomState.previousProtectedPlayerId;
-                            const seerKnownRole = seerResults[p.deviceId];
-                            
-                            return (
-                                <div 
-                                    key={p.deviceId} 
-                                    className={`player-card ${!p.alive ? 'dead' : ''} ${isSelected ? 'selected' : ''} ${isMe ? 'me' : ''} ${isPrevProtected ? 'protected-prev' : ''}`}
-                                    onClick={() => p.alive && !isPrevProtected && setSelectedPlayer(p.deviceId)}
-                                >
-                                    <span className="player-name">{p.displayName}</span>
-                                    {seerKnownRole && <span className="seer-role-label">{seerKnownRole.replace('_', ' ')}</span>}
-                                    {!p.alive && <span className="dead-label">DEAD</span>}
-                                    {isPrevProtected && <span className="afk-label" style={{background: 'orange'}}>Protected Last Night</span>}
-                                    {p.hasDisconnected && <span className="afk-label">AFK</span>}
-                                </div>
-                            );
-                        })}
-                    </div>
-                    
-                    <div className="action-area">
-                        <button 
-                            className="primary-btn action-btn" 
-                            disabled={!canPerformAction()}
-                            onClick={handleAction}
-                        >
-                            {getActionLabel()}
-                        </button>
-                    </div>
-                </div>
+  const handleEndGame = async () => {
+    await endGame();
+    leaveRoom();
+    navigate("/");
+  };
 
-                <div className="chat-container glass-panel">
-                    <ChatBox />
-                </div>
-            </div>
+  return (
+    <div className="game-room-container">
+      <div className="game-header glass-panel">
+        <div className="phase-info">
+          <h2>{roomState.currentPhase.replace("_", " ")}</h2>
+          <p className="timer">{timeLeft}s</p>
         </div>
-    );
+        <div className="player-info">
+          <h3>Role: {myPlayer?.role?.replace("_", " ") || "Spectator"}</h3>
+          <p className={isAlive ? "status-alive" : "status-dead"}>
+            {isAlive ? "ALIVE" : "DEAD"}
+          </p>
+        </div>
+        <div className="game-actions">
+          {isHost && (
+            <button 
+              onClick={handleEndGame}
+              style={{ background: '#ef4444', color: 'white', padding: '0.5rem 1rem', marginRight: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+            >
+              End Game
+            </button>
+          )}
+          <button 
+            onClick={handleLeaveGame}
+            style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', fontWeight: '600' }}
+          >
+            Leave Room
+          </button>
+        </div>
+      </div>
+
+      <div className="game-main">
+        <div className="grid-container glass-panel">
+          <div className="player-grid">
+            {roomState.players.map((p) => {
+              if (!roomState.hostPlays && p.host) return null; // Skip non-playing host
+
+              const isSelected = selectedPlayer === p.deviceId;
+              const isMe = p.deviceId === deviceId;
+              const isPrevProtected =
+                myPlayer?.role === "BODYGUARD" &&
+                roomState.currentPhase === "NIGHT" &&
+                p.deviceId === roomState.previousProtectedPlayerId;
+              const seerKnownRole = seerResults[p.deviceId];
+
+              return (
+                <div
+                  key={p.deviceId}
+                  className={`player-card ${!p.alive ? "dead" : ""} ${isSelected ? "selected" : ""} ${isMe ? "me" : ""} ${isPrevProtected ? "protected-prev" : ""}`}
+                  onClick={() =>
+                    p.alive && !isPrevProtected && setSelectedPlayer(p.deviceId)
+                  }
+                >
+                  <span className="player-name">{p.displayName}</span>
+                  {seerKnownRole && (
+                    <span className="seer-role-label">
+                      {seerKnownRole.replace("_", " ")}
+                    </span>
+                  )}
+                  {!p.alive && <span className="dead-label">DEAD</span>}
+                  {isPrevProtected && (
+                    <span
+                      className="afk-label"
+                      style={{ background: "orange" }}
+                    >
+                      Protected Last Night
+                    </span>
+                  )}
+                  {p.hasDisconnected && <span className="afk-label">AFK</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="action-area">
+            <button
+              className="primary-btn action-btn"
+              disabled={!canPerformAction()}
+              onClick={handleAction}
+            >
+              {getActionLabel()}
+            </button>
+          </div>
+        </div>
+
+        <div className="chat-container glass-panel">
+          <ChatBox />
+        </div>
+      </div>
+    </div>
+  );
 };

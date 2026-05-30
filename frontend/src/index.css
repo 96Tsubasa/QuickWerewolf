@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap");
 
 :root {
   --bg-color: #0b0f19;
@@ -12,6 +12,20 @@
   --success: #10b981;
 }
 
+/* Light theme */
+body.light-theme {
+  --bg-color: #f8f9fa;
+  --panel-bg: rgba(240, 244, 250, 0.8);
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --primary-gradient: linear-gradient(135deg, #4f46e5, #a855f7, #ec4899);
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --accent: #6b21a8;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -19,9 +33,9 @@
 }
 
 body {
-  font-family: 'Outfit', sans-serif;
+  font-family: "Outfit", sans-serif;
   background-color: var(--bg-color);
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%);
   color: var(--text-main);
@@ -29,6 +43,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 #root {
@@ -73,7 +90,8 @@ h2 {
 }
 
 /* Home / Lobby */
-.home-container, .lobby-container {
+.home-container,
+.lobby-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -93,7 +111,7 @@ h2 {
 
 /* Buttons */
 button {
-  font-family: 'Outfit', sans-serif;
+  font-family: "Outfit", sans-serif;
   cursor: pointer;
   border: none;
   outline: none;
@@ -153,7 +171,7 @@ button:disabled {
   border: 1px solid var(--panel-border);
   border-radius: 12px;
   color: white;
-  font-family: 'Outfit', sans-serif;
+  font-family: "Outfit", sans-serif;
   font-size: 1rem;
   margin-bottom: 1rem;
   transition: border-color 0.3s ease;
@@ -163,7 +181,8 @@ button:disabled {
   outline: none;
 }
 
-.form-container, .action-buttons {
+.form-container,
+.action-buttons {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -182,9 +201,10 @@ button:disabled {
   }
 }
 
-.players-list ul, .waiting-info ul {
+.players-list ul,
+.waiting-info ul {
   list-style: none;
-  background: rgba(0,0,0,0.2);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 12px;
   padding: 1rem;
   max-height: 300px;
@@ -214,7 +234,7 @@ button:disabled {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .role-controls {
   display: flex;
@@ -225,7 +245,7 @@ button:disabled {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: white;
 }
 .role-controls button:hover {
@@ -257,6 +277,11 @@ button:disabled {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
+}
+
+.game-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .phase-info h2 {
@@ -493,7 +518,7 @@ button:disabled {
   border-radius: 8px;
   padding: 0.8rem;
   color: white;
-  font-family: 'Outfit', sans-serif;
+  font-family: "Outfit", sans-serif;
 }
 .chat-input input:focus {
   outline: none;
@@ -507,6 +532,12 @@ button:disabled {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

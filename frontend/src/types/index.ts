@@ -22,6 +22,7 @@ export interface RoomState {
     hostPlays: boolean;
     phaseEndTime: number;
     previousProtectedPlayerId?: string;
+    phaseDurations?: Record<string, number>;
 }
 
 export interface ChatMessage {

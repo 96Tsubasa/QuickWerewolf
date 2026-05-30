@@ -9,10 +9,10 @@ interface GameStore {
     roomState: RoomState | null;
     globalChat: ChatMessage[];
     werewolfChat: ChatMessage[];
-    hostChat: ChatMessage[];
     seerResults: Record<string, string>;
     stompClient: Client | null;
     error: string | null;
+    theme: 'light' | 'dark';
 
     setUserInfo: (deviceId: string, displayName: string) => void;
     connectWebSocket: (roomId: string) => void;
@@ -22,12 +22,15 @@ interface GameStore {
     createRoom: () => Promise<void>;
     joinRoom: (roomId: string) => Promise<void>;
     updateSettings: (maxPlayers: number, hostPlays: boolean, roleCounts: Record<Role, number>) => Promise<void>;
+    updatePhaseDurations: (phaseDurations: Record<string, number>) => Promise<void>;
     startGame: () => void;
+    endGame: () => Promise<void>;
     sendGlobalChat: (text: string) => void;
     sendWerewolfChat: (text: string) => void;
-    sendHostChat: (text: string, targetDeviceId: string) => void;
     performNightAction: (targetId: string) => void;
     performDayVote: (targetId: string) => void;
+    kickPlayer: (targetDeviceId: string) => Promise<void>;
+    updateTheme: () => void;
 }
 
 const BACKEND_URL = 'http://localhost:8080';
@@ -38,10 +41,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     roomState: null,
     globalChat: [],
     werewolfChat: [],
-    hostChat: [],
     seerResults: {},
     stompClient: null,
     error: null,
+    theme: 'dark',
 
     setUserInfo: (deviceId: string, displayName: string) => {
         localStorage.setItem('qw_device_id', deviceId);
@@ -59,7 +62,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
             onConnect: () => {
                 // Subscribe to room state updates
                 client.subscribe(`/topic/room/${roomId}/state`, (msg) => {
-                    set({ roomState: JSON.parse(msg.body) });
+                    const newRoomState = JSON.parse(msg.body);
+                    set({ roomState: newRoomState });
+                    get().updateTheme();
                 });
 
                 // Subscribe to global chat
@@ -74,13 +79,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
                     const chatMsg = JSON.parse(msg.body);
                     chatMsg.id = crypto.randomUUID();
                     set((state) => ({ werewolfChat: [...state.werewolfChat, chatMsg] }));
-                });
-
-                // Subscribe to host chat (private)
-                client.subscribe(`/topic/room/${roomId}/host/${deviceId}`, (msg) => {
-                    const chatMsg = JSON.parse(msg.body);
-                    chatMsg.id = crypto.randomUUID();
-                    set((state) => ({ hostChat: [...state.hostChat, chatMsg] }));
                 });
 
                 // Subscribe to seer result
@@ -124,7 +122,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     leaveRoom: () => {
         get().disconnectWebSocket();
-        set({ roomState: null, globalChat: [], werewolfChat: [], hostChat: [], seerResults: {}, error: null });
+        set({ roomState: null, globalChat: [], werewolfChat: [], seerResults: {}, error: null, theme: 'dark' });
     },
 
     createRoom: async () => {
@@ -175,6 +173,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
+    updatePhaseDurations: async (phaseDurations) => {
+        const { deviceId, roomState } = get();
+        if (!roomState) return;
+        try {
+            await fetch(`${BACKEND_URL}/api/rooms/${roomState.roomId}/phase-durations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hostDeviceId: deviceId, phaseDurations })
+            });
+        } catch (e) {
+            set({ error: "Failed to update phase durations" });
+        }
+    },
+
     startGame: () => {
         const { stompClient, roomState, deviceId } = get();
         if (stompClient && roomState) {
@@ -182,6 +194,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 destination: `/app/room/${roomState.roomId}/start`,
                 body: JSON.stringify({ hostDeviceId: deviceId })
             });
+        }
+    },
+
+    endGame: async () => {
+        const { deviceId, roomState } = get();
+        if (!roomState) return;
+        try {
+            await fetch(`${BACKEND_URL}/api/rooms/${roomState.roomId}/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hostDeviceId: deviceId })
+            });
+        } catch (e) {
+            set({ error: "Failed to end game" });
         }
     },
 
@@ -205,16 +231,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
-    sendHostChat: (text: string, targetDeviceId: string) => {
-        const { stompClient, roomState, displayName, deviceId } = get();
-        if (stompClient && roomState) {
-            stompClient.publish({
-                destination: `/app/room/${roomState.roomId}/chat/host`,
-                body: JSON.stringify({ sender: displayName, text, targetDeviceId, senderDeviceId: deviceId })
-            });
-        }
-    },
-
     performNightAction: (targetId: string) => {
         const { stompClient, roomState, deviceId } = get();
         if (stompClient && roomState) {
@@ -233,5 +249,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 body: JSON.stringify({ deviceId, targetId })
             });
         }
+    },
+
+    kickPlayer: async (targetDeviceId: string) => {
+        const { deviceId, roomState } = get();
+        if (!roomState) return;
+        try {
+            await fetch(`${BACKEND_URL}/api/rooms/${roomState.roomId}/kick`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hostDeviceId: deviceId, targetDeviceId })
+            });
+        } catch (e) {
+            set({ error: "Failed to kick player" });
+        }
+    },
+
+    updateTheme: () => {
+        const { roomState } = get();
+        if (!roomState || roomState.currentPhase === 'LOBBY' || roomState.currentPhase === 'ENDED') {
+            set({ theme: 'dark' });
+            return;
+        }
+
+        // Use DAY phases for light theme, NIGHT for dark
+        const isNightPhase = roomState.currentPhase === 'NIGHT';
+        set({ theme: isNightPhase ? 'dark' : 'light' });
     }
 }));

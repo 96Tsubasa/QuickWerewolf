@@ -24,4 +24,16 @@ public class Room {
     private String previousProtectedPlayerId;
     private boolean hostPlays = true;
     private long phaseEndTime; // Timestamp in ms for countdowns
+    private Map<String, Long> phaseDurations = new HashMap<>(); // phase -> duration in seconds (NIGHT, DAY_DISCUSSION,
+                                                                // DAY_VOTING)
+
+    public Room() {
+        initializePhaseDurations();
+    }
+
+    private void initializePhaseDurations() {
+        phaseDurations.put("NIGHT", 30L);
+        phaseDurations.put("DAY_DISCUSSION", 30L);
+        phaseDurations.put("DAY_VOTING", 30L);
+    }
 }

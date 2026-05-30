@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.HashMap;
 
@@ -28,16 +29,16 @@ public class RoomService {
 
     public RoomStateDto createRoom(String deviceId, String displayName) {
         String roomId = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-        
+
         Room room = new Room();
         room.setRoomId(roomId);
         room.setCurrentPhase(GamePhase.LOBBY);
-        
+
         Player host = new Player(deviceId, displayName, null, true, true, false);
         room.getPlayers().add(host);
-        
+
         roomRepository.save(room);
-        
+
         return getRoomState(roomId);
     }
 
@@ -52,7 +53,7 @@ public class RoomService {
         Optional<Player> existingPlayerOpt = room.getPlayers().stream()
                 .filter(p -> p.getDeviceId().equals(deviceId))
                 .findFirst();
-        
+
         if (existingPlayerOpt.isPresent()) {
             Player player = existingPlayerOpt.get();
             player.setDisplayName(displayName);
@@ -61,71 +62,71 @@ public class RoomService {
             if (room.getCurrentPhase() != GamePhase.LOBBY) {
                 throw new IllegalStateException("Game has already started");
             }
-            
+
             if (room.getPlayers().size() >= room.getMaxPlayers()) {
                 throw new IllegalStateException("Room is full");
             }
-            
+
             Player newPlayer = new Player(deviceId, displayName, null, false, true, false);
             room.getPlayers().add(newPlayer);
         }
-        
+
         roomRepository.save(room);
-        
+
         RoomStateDto state = getRoomState(roomId);
         broadcastRoomState(roomId, state);
         return state;
     }
-    
+
     public void kickPlayer(String roomId, String hostDeviceId, String targetDeviceId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
-                
+
         boolean isHost = room.getPlayers().stream()
                 .anyMatch(p -> p.getDeviceId().equals(hostDeviceId) && p.isHost());
-                
+
         if (!isHost) {
             throw new IllegalStateException("Only host can kick players");
         }
-        
+
         if (hostDeviceId.equals(targetDeviceId)) {
             throw new IllegalStateException("Host cannot kick themselves");
         }
-        
+
         room.getPlayers().removeIf(p -> p.getDeviceId().equals(targetDeviceId));
         roomRepository.save(room);
-        
+
         RoomStateDto state = getRoomState(roomId);
         broadcastRoomState(roomId, state);
         messagingTemplate.convertAndSend("/topic/room/" + roomId + "/kicked", targetDeviceId);
     }
-    
+
     public void closeRoom(String roomId, String hostDeviceId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
-                
+
         boolean isHost = room.getPlayers().stream()
                 .anyMatch(p -> p.getDeviceId().equals(hostDeviceId) && p.isHost());
-                
+
         if (!isHost) {
             throw new IllegalStateException("Only host can close room");
         }
-        
+
         room.setCurrentPhase(GamePhase.ENDED);
         roomRepository.save(room);
-        
+
         RoomStateDto state = getRoomState(roomId);
         broadcastRoomState(roomId, state);
     }
-    
+
     public void quitRoom(String roomId, String deviceId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
-                
+
         Optional<Player> playerOpt = room.getPlayers().stream()
                 .filter(p -> p.getDeviceId().equals(deviceId))
                 .findFirst();
-        
+
         if (playerOpt.isPresent()) {
             if (room.getCurrentPhase() != GamePhase.LOBBY) {
                 // Just mark disconnected
@@ -133,7 +134,7 @@ public class RoomService {
             } else {
                 // Remove from lobby
                 room.getPlayers().remove(playerOpt.get());
-                
+
                 // If host quits, assign new host or close room
                 if (playerOpt.get().isHost()) {
                     if (room.getPlayers().isEmpty()) {
@@ -143,18 +144,18 @@ public class RoomService {
                     }
                 }
             }
-            
+
             roomRepository.save(room);
-            
+
             RoomStateDto state = getRoomState(roomId);
             broadcastRoomState(roomId, state);
         }
     }
-    
+
     public RoomStateDto getRoomState(String roomId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
-                
+
         RoomStateDto state = new RoomStateDto();
         state.setRoomId(room.getRoomId());
         state.setMaxPlayers(room.getMaxPlayers());
@@ -165,7 +166,8 @@ public class RoomService {
         state.setHostPlays(room.isHostPlays());
         state.setPhaseEndTime(room.getPhaseEndTime());
         state.setPreviousProtectedPlayerId(room.getPreviousProtectedPlayerId());
-        
+        state.setPhaseDurations(room.getPhaseDurations());
+
         List<PlayerDto> playerDtos = room.getPlayers().stream().map(p -> {
             PlayerDto dto = new PlayerDto();
             dto.setDeviceId(p.getDeviceId());
@@ -176,40 +178,70 @@ public class RoomService {
             dto.setHasDisconnected(p.isHasDisconnected());
             return dto;
         }).collect(Collectors.toList());
-        
+
         state.setPlayers(playerDtos);
         return state;
     }
 
-    public void updateRoomSettings(String roomId, String hostDeviceId, int maxPlayers, boolean hostPlays, HashMap<Role, Integer> roleCounts) {
+    public void updateRoomSettings(String roomId, String hostDeviceId, int maxPlayers, boolean hostPlays,
+            HashMap<Role, Integer> roleCounts) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
-                
+
         boolean isHost = room.getPlayers().stream()
                 .anyMatch(p -> p.getDeviceId().equals(hostDeviceId) && p.isHost());
-                
+
         if (!isHost) {
             throw new IllegalStateException("Only host can change settings");
         }
-        
+
         if (room.getCurrentPhase() != GamePhase.LOBBY) {
             throw new IllegalStateException("Cannot change settings after game started");
         }
-        
+
         if (maxPlayers < room.getPlayers().size()) {
             throw new IllegalStateException("Max players cannot be less than current players");
         }
-        
+
         int totalRoles = roleCounts.values().stream().mapToInt(Integer::intValue).sum();
         if (totalRoles > maxPlayers) {
             throw new IllegalStateException("Total roles cannot exceed max players");
         }
-        
+
         room.setMaxPlayers(maxPlayers);
         room.setHostPlays(hostPlays);
         room.setRoleCounts(roleCounts);
         roomRepository.save(room);
-        
+
+        RoomStateDto state = getRoomState(roomId);
+        broadcastRoomState(roomId, state);
+    }
+
+    public void updatePhaseDurations(String roomId, String hostDeviceId, Map<String, Long> phaseDurations) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+
+        boolean isHost = room.getPlayers().stream()
+                .anyMatch(p -> p.getDeviceId().equals(hostDeviceId) && p.isHost());
+
+        if (!isHost) {
+            throw new IllegalStateException("Only host can change phase durations");
+        }
+
+        if (room.getCurrentPhase() != GamePhase.LOBBY) {
+            throw new IllegalStateException("Cannot change phase durations after game started");
+        }
+
+        // Validate durations (must be positive)
+        for (Long duration : phaseDurations.values()) {
+            if (duration <= 0) {
+                throw new IllegalArgumentException("Phase duration must be greater than 0");
+            }
+        }
+
+        room.setPhaseDurations(phaseDurations);
+        roomRepository.save(room);
+
         RoomStateDto state = getRoomState(roomId);
         broadcastRoomState(roomId, state);
     }

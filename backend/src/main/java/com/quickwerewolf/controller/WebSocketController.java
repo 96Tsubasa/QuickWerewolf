@@ -37,23 +37,11 @@ public class WebSocketController {
         messagingTemplate.convertAndSend("/topic/room/" + roomId + "/werewolf", payload);
     }
 
-    @MessageMapping("/room/{roomId}/chat/host")
-    public void handleHostChat(@DestinationVariable String roomId, @Payload Map<String, Object> payload) {
-        String targetDeviceId = (String) payload.get("targetDeviceId");
-        String senderDeviceId = (String) payload.get("senderDeviceId");
-        
-        // This could be between a player and host.
-        // Send to specific target
-        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/host/" + targetDeviceId, payload);
-        // And send back to sender so they see it
-        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/host/" + senderDeviceId, payload);
-    }
-
     @MessageMapping("/room/{roomId}/action/night")
     public void handleNightAction(@DestinationVariable String roomId, @Payload Map<String, String> payload) {
         String deviceId = payload.get("deviceId");
         String targetId = payload.get("targetId");
-        
+
         try {
             gameEngineService.handleNightAction(roomId, deviceId, targetId);
         } catch (IllegalArgumentException e) {
@@ -65,7 +53,7 @@ public class WebSocketController {
     public void handleDayVote(@DestinationVariable String roomId, @Payload Map<String, String> payload) {
         String deviceId = payload.get("deviceId");
         String targetId = payload.get("targetId");
-        
+
         gameEngineService.handleDayVote(roomId, deviceId, targetId);
     }
 }
